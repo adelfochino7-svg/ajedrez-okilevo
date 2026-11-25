@@ -81,6 +81,16 @@
             box-shadow: inset 0 0 0 9999px rgba(255, 235, 59, 0.38) !important;
         }
 
+        /* Resaltado de pista en Modo Iniciación */
+        .tutorial-hint-sq {
+            box-shadow: inset 0 0 0 4px #f59e0b, inset 0 0 18px rgba(245, 158, 11, 0.65) !important;
+            animation: pulseHint 1.2s infinite ease-in-out;
+        }
+        @keyframes pulseHint {
+            0%, 100% { box-shadow: inset 0 0 0 4px #f59e0b, inset 0 0 14px rgba(245, 158, 11, 0.5); }
+            50% { box-shadow: inset 0 0 0 6px #fbbf24, inset 0 0 24px rgba(251, 191, 36, 0.9); }
+        }
+
         /* Indicador de rey en jaque */
         .in-check {
             background: radial-gradient(circle, rgba(239, 68, 68, 0.92) 0%, rgba(220, 38, 38, 0.35) 75%) !important;
@@ -212,6 +222,7 @@
                 <select id="gameModeSelect" aria-label="Modo de juego" class="bg-slate-700 hover:bg-slate-650 text-slate-200 text-xs sm:text-sm font-medium rounded-lg px-2.5 py-1.5 border border-slate-600 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition">
                     <option value="ai" selected>🤖 Contra la IA</option>
                     <option value="pvp">👥 Dos Jugadores (Local)</option>
+                    <option value="tutorial">🎓 Modo Iniciación (Aprende)</option>
                 </select>
 
                 <select id="aiLevelSelect" aria-label="Nivel de la IA" class="bg-slate-700 hover:bg-slate-650 text-slate-200 text-xs sm:text-sm font-medium rounded-lg px-2.5 py-1.5 border border-slate-600 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition">
@@ -296,6 +307,55 @@
 
         <!-- Columna Lateral: Estado, Registro de Jugadas y Niveles -->
         <section class="w-full lg:w-88 flex flex-col gap-4">
+
+            <!-- Panel de Modo Iniciación (Tutor Interactivo) -->
+            <div id="tutorialPanel" class="hidden bg-slate-800 border-2 border-amber-500/50 rounded-xl p-4 shadow-lg shadow-amber-950/20 space-y-3">
+                <div class="flex items-center justify-between">
+                    <h2 class="text-xs font-bold uppercase tracking-wider text-amber-400 flex items-center gap-1.5">
+                        <i class="fa-solid fa-graduation-cap"></i> Academia OKILEVO
+                    </h2>
+                    <span id="tutorialStepBadge" class="text-[11px] bg-amber-500/20 text-amber-300 border border-amber-500/30 px-2 py-0.5 rounded-full font-bold">
+                        Lección 1 de 8
+                    </span>
+                </div>
+
+                <!-- Barra de progreso -->
+                <div class="w-full bg-slate-900 rounded-full h-1.5 overflow-hidden">
+                    <div id="tutorialProgressBar" class="bg-amber-400 h-full transition-all duration-300" style="width: 12.5%;"></div>
+                </div>
+
+                <div>
+                    <h3 id="tutorialTitle" class="text-base font-bold text-white mb-1">1. La Torre</h3>
+                    <p id="tutorialDesc" class="text-xs text-slate-300 leading-relaxed"></p>
+                </div>
+
+                <div class="p-2.5 bg-slate-900/90 border border-slate-700 rounded-lg text-xs">
+                    <div class="font-semibold text-emerald-400 mb-0.5 flex items-center gap-1.5">
+                        <i class="fa-solid fa-bullseye"></i> Tu misión:
+                    </div>
+                    <p id="tutorialGoal" class="text-slate-200 leading-snug"></p>
+                </div>
+
+                <div id="tutorialFeedback" class="hidden p-2.5 rounded-lg text-xs font-medium flex items-start gap-2"></div>
+
+                <div class="grid grid-cols-2 gap-2 pt-1">
+                    <button id="tutHintBtn" class="py-1.5 px-2.5 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 rounded-lg text-xs font-semibold transition flex items-center justify-center gap-1.5">
+                        <i class="fa-solid fa-lightbulb"></i> Ver Pista
+                    </button>
+                    <button id="tutRetryBtn" class="py-1.5 px-2.5 bg-slate-700 hover:bg-slate-600 text-slate-200 border border-slate-600 rounded-lg text-xs font-semibold transition flex items-center justify-center gap-1.5">
+                        <i class="fa-solid fa-rotate-right"></i> Repetir
+                    </button>
+                </div>
+
+                <div class="flex items-center justify-between gap-2 pt-1 border-t border-slate-700/80">
+                    <button id="tutPrevBtn" class="py-1.5 px-3 bg-slate-700 hover:bg-slate-600 disabled:opacity-40 text-slate-200 rounded-lg text-xs font-semibold transition">
+                        ← Anterior
+                    </button>
+                    <button id="tutNextBtn" class="flex-1 py-1.5 px-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold transition shadow">
+                        Siguiente lección →
+                    </button>
+                </div>
+            </div>
 
             <!-- Estado de la Partida -->
             <div class="bg-slate-800 border border-slate-700 rounded-xl p-4 shadow-md">
@@ -1547,14 +1607,237 @@
             master: 'Nivel Master'
         };
 
+        // =========================================================================
+        // MODO INICIACIÓN (TUTOR INTERACTIVO PASO A PASO)
+        // =========================================================================
+        const LECCIONES_INICIACION = [
+            {
+                titulo: '1. La Torre (♖)',
+                desc: 'La Torre se mueve en línea recta: hacia arriba, abajo, izquierda o derecha, tantas casillas como quieras. No puede saltar sobre otras piezas.',
+                objetivo: 'Haz clic en la Torre blanca (d4) y muévela hacia arriba en línea recta para capturar al peón negro en d7.',
+                piezas: [
+                    { r: 4, c: 3, color: 'w', type: 'R' },
+                    { r: 1, c: 3, color: 'b', type: 'P' }
+                ],
+                pistaOrigen: [4, 3],
+                pistaDestino: [1, 3],
+                validar: (mov) => mov.to[0] === 1 && mov.to[1] === 3,
+                exito: '¡Excelente! La Torre domina filas y columnas completas en línea recta.'
+            },
+            {
+                titulo: '2. El Alfil (♗)',
+                desc: 'El Alfil se mueve únicamente en diagonal, tantas casillas como quieras. Un alfil que empieza en casilla clara siempre caminará por casillas claras.',
+                objetivo: 'Haz clic en el Alfil blanco (c1) y deslízalo en diagonal para capturar al peón negro en g5.',
+                piezas: [
+                    { r: 7, c: 2, color: 'w', type: 'B' },
+                    { r: 3, c: 6, color: 'b', type: 'P' }
+                ],
+                pistaOrigen: [7, 2],
+                pistaDestino: [3, 6],
+                validar: (mov) => mov.to[0] === 3 && mov.to[1] === 6,
+                exito: '¡Muy bien! El Alfil es el rey de las diagonales largas.'
+            },
+            {
+                titulo: '3. La Dama (♕)',
+                desc: 'La Dama es la pieza más poderosa del ajedrez: combina el movimiento de la Torre (recto) y del Alfil (diagonal) en cualquier dirección.',
+                objetivo: 'Mueve tu Dama blanca (d1) en diagonal hacia la derecha para capturar al peón negro en h5.',
+                piezas: [
+                    { r: 7, c: 3, color: 'w', type: 'Q' },
+                    { r: 3, c: 7, color: 'b', type: 'P' }
+                ],
+                pistaOrigen: [7, 3],
+                pistaDestino: [3, 7],
+                validar: (mov) => mov.to[0] === 3 && mov.to[1] === 7,
+                exito: '¡Genial! Cuida siempre a tu Dama, vale 9 puntos y decide muchas partidas.'
+            },
+            {
+                titulo: '4. El Caballo (♘)',
+                desc: 'El Caballo se mueve en forma de "L" (dos casillas en una dirección y una hacia el costado). Es la única pieza capaz de saltar sobre otras piezas.',
+                objetivo: 'Haz clic en el Caballo blanco (e4), salta por encima de tus propios peones y captura al peón negro en f6.',
+                piezas: [
+                    { r: 4, c: 4, color: 'w', type: 'N' },
+                    { r: 3, c: 4, color: 'w', type: 'P' },
+                    { r: 5, c: 4, color: 'w', type: 'P' },
+                    { r: 4, c: 3, color: 'w', type: 'P' },
+                    { r: 4, c: 5, color: 'w', type: 'P' },
+                    { r: 2, c: 5, color: 'b', type: 'P' }
+                ],
+                pistaOrigen: [4, 4],
+                pistaDestino: [2, 5],
+                validar: (mov) => mov.from[0] === 4 && mov.from[1] === 4 && mov.to[0] === 2 && mov.to[1] === 5,
+                exito: '¡Perfecto! El salto en "L" del Caballo sorprende a muchos rivales.'
+            },
+            {
+                titulo: '5. El Peón (♙)',
+                desc: 'El Peón avanza hacia adelante 1 casilla (o 2 en su primer movimiento), pero nunca retrocede. Lo más importante: ¡captura en diagonal hacia adelante!',
+                objetivo: 'Haz clic en tu Peón blanco (e3) y captura en diagonal al peón negro que está en d4.',
+                piezas: [
+                    { r: 5, c: 4, color: 'w', type: 'P' },
+                    { r: 4, c: 3, color: 'b', type: 'P' }
+                ],
+                pistaOrigen: [5, 4],
+                pistaDestino: [4, 3],
+                validar: (mov) => mov.to[0] === 4 && mov.to[1] === 3,
+                exito: '¡Correcto! Recuerda: los peones caminan de frente, pero comen en diagonal.'
+            },
+            {
+                titulo: '6. El Rey (♔)',
+                desc: 'El Rey es la pieza más valiosa: si te dan Jaque Mate, pierdes la partida. Se mueve solo 1 casilla en cualquier dirección, pero nunca a una casilla atacada.',
+                objetivo: 'Mueve tu Rey blanco (e4) un paso en diagonal para capturar al peón negro indefenso en f5.',
+                piezas: [
+                    { r: 4, c: 4, color: 'w', type: 'K' },
+                    { r: 3, c: 5, color: 'b', type: 'P' }
+                ],
+                pistaOrigen: [4, 4],
+                pistaDestino: [3, 5],
+                validar: (mov) => mov.to[0] === 3 && mov.to[1] === 5,
+                exito: '¡Bien hecho! Al inicio de la partida protege al Rey; al final, úsalo para atacar.'
+            },
+            {
+                titulo: '7. Coronación de Peón (♙ → ♕)',
+                desc: 'Si logras llevar un Peón hasta la última fila del rival, se transforma (corona) en la pieza que elijas, casi siempre una Dama.',
+                objetivo: 'Avanza tu Peón blanco de e7 a e8 y elige la Dama en el menú que aparecerá.',
+                piezas: [
+                    { r: 1, c: 4, color: 'w', type: 'P' },
+                    { r: 7, c: 4, color: 'w', type: 'K' },
+                    { r: 0, c: 0, color: 'b', type: 'K' }
+                ],
+                pistaOrigen: [1, 4],
+                pistaDestino: [0, 4],
+                validar: (mov) => mov.to[0] === 0 && mov.to[1] === 4 && mov.promotion,
+                exito: '¡Felicidades! Acabas de coronar un peón y ganar una nueva Dama.'
+            },
+            {
+                titulo: '8. ¡Tu Primer Jaque Mate!',
+                desc: 'El Jaque Mate ocurre cuando atacas al Rey rival y no tiene escapatoria. Aquí el Rey negro está atrapado detrás de sus propios peones.',
+                objetivo: 'Mueve tu Torre blanca (a1) hasta la última fila en a8 para dar Jaque Mate inmediato.',
+                piezas: [
+                    { r: 7, c: 0, color: 'w', type: 'R' },
+                    { r: 7, c: 6, color: 'w', type: 'K' },
+                    { r: 0, c: 7, color: 'b', type: 'K' },
+                    { r: 1, c: 6, color: 'b', type: 'P' },
+                    { r: 1, c: 7, color: 'b', type: 'P' }
+                ],
+                pistaOrigen: [7, 0],
+                pistaDestino: [0, 0],
+                validar: (mov) => mov.to[0] === 0 && mov.to[1] === 0,
+                exito: '¡JAQUE MATE! Completaste el curso de iniciación. Ya estás listo para jugar tu primera partida contra la IA.'
+            }
+        ];
+
+        let leccionActualIdx = 0;
+        let leccionCompletada = false;
+        let pistaTutorialActiva = false;
+
+        const tutorialPanel = document.getElementById('tutorialPanel');
+        const tutorialStepBadge = document.getElementById('tutorialStepBadge');
+        const tutorialProgressBar = document.getElementById('tutorialProgressBar');
+        const tutorialTitle = document.getElementById('tutorialTitle');
+        const tutorialDesc = document.getElementById('tutorialDesc');
+        const tutorialGoal = document.getElementById('tutorialGoal');
+        const tutorialFeedback = document.getElementById('tutorialFeedback');
+        const tutHintBtn = document.getElementById('tutHintBtn');
+        const tutRetryBtn = document.getElementById('tutRetryBtn');
+        const tutPrevBtn = document.getElementById('tutPrevBtn');
+        const tutNextBtn = document.getElementById('tutNextBtn');
+
+        function cargarLeccionTutorial(idx) {
+            leccionActualIdx = Math.max(0, Math.min(LECCIONES_INICIACION.length - 1, idx));
+            leccionCompletada = false;
+            pistaTutorialActiva = false;
+
+            const lec = LECCIONES_INICIACION[leccionActualIdx];
+            juego.inicializarTablero();
+            juego.tableroInvertido = false;
+            juego.tablero = Array(8).fill(null).map(() => Array(8).fill(null));
+            lec.piezas.forEach(p => {
+                juego.tablero[p.r][p.c] = { color: p.color, type: p.type };
+            });
+            juego.derechosEnroque = {
+                w: { kingSide: false, queenSide: false },
+                b: { kingSide: false, queenSide: false }
+            };
+            juego.turno = 'w';
+
+            tutorialStepBadge.textContent = `Lección ${leccionActualIdx + 1} de ${LECCIONES_INICIACION.length}`;
+            tutorialProgressBar.style.width = `${((leccionActualIdx + 1) / LECCIONES_INICIACION.length) * 100}%`;
+            tutorialTitle.textContent = lec.titulo;
+            tutorialDesc.textContent = lec.desc;
+            tutorialGoal.textContent = lec.objetivo;
+            tutorialFeedback.classList.add('hidden');
+
+            tutPrevBtn.disabled = (leccionActualIdx === 0);
+            if (leccionActualIdx === LECCIONES_INICIACION.length - 1) {
+                tutNextBtn.textContent = '🤖 Jugar vs IA (Principiantes)';
+            } else {
+                tutNextBtn.textContent = 'Siguiente lección →';
+            }
+
+            ocultarModal();
+            ocultarCoronacion();
+            actualizarEtiquetasJugadores();
+            actualizarInterfaz();
+        }
+
+        function mostrarFeedbackTutorial(mensaje, esExito) {
+            tutorialFeedback.classList.remove('hidden', 'bg-emerald-500/20', 'text-emerald-300', 'border-emerald-500/40', 'bg-rose-500/20', 'text-rose-300', 'border-rose-500/40');
+            if (esExito) {
+                tutorialFeedback.classList.add('bg-emerald-500/20', 'text-emerald-300', 'border', 'border-emerald-500/40');
+                tutorialFeedback.innerHTML = `<i class="fa-solid fa-circle-check mt-0.5 text-emerald-400"></i><span>${mensaje}</span>`;
+            } else {
+                tutorialFeedback.classList.add('bg-rose-500/20', 'text-rose-300', 'border', 'border-rose-500/40');
+                tutorialFeedback.innerHTML = `<i class="fa-solid fa-circle-exclamation mt-0.5 text-rose-400"></i><span>${mensaje}</span>`;
+            }
+        }
+
+        tutHintBtn.addEventListener('click', () => {
+            if (juego.modoJuego !== 'tutorial' || leccionCompletada) return;
+            pistaTutorialActiva = true;
+            renderizarTablero();
+        });
+
+        tutRetryBtn.addEventListener('click', () => {
+            if (juego.modoJuego !== 'tutorial') return;
+            cargarLeccionTutorial(leccionActualIdx);
+        });
+
+        tutPrevBtn.addEventListener('click', () => {
+            if (juego.modoJuego !== 'tutorial') return;
+            cargarLeccionTutorial(leccionActualIdx - 1);
+        });
+
+        tutNextBtn.addEventListener('click', () => {
+            if (juego.modoJuego !== 'tutorial') return;
+            if (leccionActualIdx < LECCIONES_INICIACION.length - 1) {
+                cargarLeccionTutorial(leccionActualIdx + 1);
+            } else {
+                // Pasar a partida real en nivel Principiantes
+                gameModeSelect.value = 'ai';
+                aiLevelSelect.value = 'principiantes';
+                juego.modoJuego = 'ai';
+                juego.nivelIA = 'principiantes';
+                juego.bandoJugador = 'w';
+                playerSideSelect.value = 'w';
+                aiLevelSelect.disabled = false;
+                playerSideSelect.disabled = false;
+                tutorialPanel.classList.add('hidden');
+                reiniciarPartida();
+            }
+        });
+
         gameModeSelect.addEventListener('change', (e) => {
             juego.modoJuego = e.target.value;
             const esAI = juego.modoJuego === 'ai';
+            const esTutorial = juego.modoJuego === 'tutorial';
             aiLevelSelect.disabled = !esAI;
             playerSideSelect.disabled = !esAI;
-            actualizarEtiquetasJugadores();
-            actualizarInterfaz();
-            if (esAI) verificarTurnoIA();
+            tutorialPanel.classList.toggle('hidden', !esTutorial);
+
+            if (esTutorial) {
+                cargarLeccionTutorial(0);
+            } else {
+                reiniciarPartida();
+            }
         });
 
         aiLevelSelect.addEventListener('change', (e) => {
@@ -1597,6 +1880,10 @@
         modalCloseBtn.addEventListener('click', ocultarModal);
 
         function reiniciarPartida() {
+            if (juego.modoJuego === 'tutorial') {
+                cargarLeccionTutorial(leccionActualIdx);
+                return;
+            }
             juego.inicializarTablero();
             ocultarModal();
             ocultarCoronacion();
@@ -1606,6 +1893,13 @@
         }
 
         function actualizarEtiquetasJugadores() {
+            if (juego.modoJuego === 'tutorial') {
+                bottomNameLabel.textContent = 'Alumno (Blancas)';
+                topNameLabel.textContent = 'Academia OKILEVO (Práctica)';
+                bottomAvatarIcon.className = 'fa-solid fa-user-graduate';
+                topAvatarIcon.className = 'fa-solid fa-chalkboard-user';
+                return;
+            }
             const esAI = juego.modoJuego === 'ai';
             const etiquetaNivel = ETIQUETAS_NIVEL[juego.nivelIA] || 'Nivel Maestro';
 
@@ -1623,6 +1917,7 @@
         }
 
         function alHacerClickEnCasilla(r, c) {
+            if (juego.modoJuego === 'tutorial' && leccionCompletada) return;
             if (juego.partidaFinalizada || juego.iaPensando || juego.pendienteCoronacion) return;
             if (juego.modoJuego === 'ai' && juego.turno !== juego.bandoJugador) return;
 
@@ -1691,6 +1986,24 @@
         }
 
         function ejecutarMovimientoYContinuar(mov, promoElegida = 'Q') {
+            if (juego.modoJuego === 'tutorial') {
+                const lec = LECCIONES_INICIACION[leccionActualIdx];
+                if (lec.validar(mov)) {
+                    juego.finalizarEjecucionMovimiento(mov, promoElegida);
+                    leccionCompletada = true;
+                    pistaTutorialActiva = false;
+                    audio.sonarVictoria();
+                    actualizarInterfaz();
+                    mostrarFeedbackTutorial(lec.exito, true);
+                } else {
+                    mostrarFeedbackTutorial('Ese movimiento es legal, pero no cumple la misión de esta lección. ¡Inténtalo de nuevo o pulsa "Ver Pista"!', false);
+                    juego.casillaSeleccionada = null;
+                    juego.movimientosValidos = [];
+                    renderizarTablero();
+                }
+                return;
+            }
+
             juego.finalizarEjecucionMovimiento(mov, promoElegida);
             actualizarInterfaz();
 
@@ -1796,6 +2109,14 @@
 
                     if (posReyEnJaque && posReyEnJaque[0] === r && posReyEnJaque[1] === c) {
                         casilla.classList.add('in-check');
+                    }
+
+                    if (juego.modoJuego === 'tutorial' && pistaTutorialActiva && !leccionCompletada) {
+                        const lec = LECCIONES_INICIACION[leccionActualIdx];
+                        if ((lec.pistaOrigen[0] === r && lec.pistaOrigen[1] === c) ||
+                            (lec.pistaDestino[0] === r && lec.pistaDestino[1] === c)) {
+                            casilla.classList.add('tutorial-hint-sq');
+                        }
                     }
 
                     if (visualCol === 0) {
