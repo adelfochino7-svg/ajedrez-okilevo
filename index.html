@@ -304,6 +304,12 @@
                     <i class="fa-solid fa-plus-circle"></i> Nueva Partida
                 </button>
             </div>
+
+            <!-- Botón para Descargar Video de la Partida -->
+            <button id="downloadVideoBtn" class="w-full mt-2.5 flex items-center justify-center gap-2 py-2.5 px-4 bg-indigo-600/90 hover:bg-indigo-500 active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-semibold rounded-lg border border-indigo-400/40 shadow-md shadow-indigo-950/40 transition">
+                <i id="downloadVideoIcon" class="fa-solid fa-film text-amber-300"></i>
+                <span id="downloadVideoText">Descargar Video de la Partida</span>
+            </button>
         </section>
 
         <!-- Columna Lateral: Estado, Registro de Jugadas y Niveles -->
@@ -426,13 +432,18 @@
             </div>
             <h3 id="modalTitle" class="text-xl font-bold text-white mb-2">¡Jaque Mate!</h3>
             <p id="modalMessage" class="text-sm text-slate-300 mb-6">El rey ha sido derrotado sin escapatoria posible.</p>
-            <div class="flex gap-3 justify-center">
-                <button id="modalCloseBtn" class="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-slate-200 text-sm font-semibold rounded-lg transition">
-                    Ver Tablero
+            <div class="flex flex-col gap-2.5">
+                <button id="modalDownloadVideoBtn" class="w-full px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold rounded-lg shadow-lg shadow-indigo-900/40 transition flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-film text-amber-300"></i> Descargar Video de la Partida
                 </button>
-                <button id="modalRestartBtn" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-semibold rounded-lg shadow-lg shadow-emerald-700/30 transition">
-                    Nueva Partida
-                </button>
+                <div class="flex gap-3 justify-center">
+                    <button id="modalCloseBtn" class="flex-1 px-4 py-2 bg-slate-700 hover:bg-slate-600 text-slate-200 text-sm font-semibold rounded-lg transition">
+                        Ver Tablero
+                    </button>
+                    <button id="modalRestartBtn" class="flex-1 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-semibold rounded-lg shadow-lg shadow-emerald-700/30 transition">
+                        Nueva Partida
+                    </button>
+                </div>
             </div>
         </div>
     </div>
@@ -2769,6 +2780,280 @@
             renderizarCapturasYVentaja();
             renderizarHistorial();
             renderizarEstado();
+        }
+
+        // =========================================================================
+        // EXPORTADOR DE VIDEO DE LA PARTIDA (Canvas + MediaRecorder API)
+        // =========================================================================
+        const downloadVideoBtn = document.getElementById('downloadVideoBtn');
+        const downloadVideoIcon = document.getElementById('downloadVideoIcon');
+        const downloadVideoText = document.getElementById('downloadVideoText');
+        const modalDownloadVideoBtn = document.getElementById('modalDownloadVideoBtn');
+        let grabandoVideo = false;
+
+        function dibujarFotogramaVideo(ctx, W, H, tablero, ultimoMov, subtituloJugada, tituloEncuentro, invertido) {
+            // Fondo oscuro elegante
+            ctx.fillStyle = '#0f172a';
+            ctx.fillRect(0, 0, W, H);
+
+            // Franja superior de marca
+            ctx.fillStyle = '#1e293b';
+            ctx.fillRect(0, 0, W, 86);
+            ctx.fillStyle = '#10b981';
+            ctx.fillRect(0, 84, W, 3);
+
+            // Título del Club
+            ctx.fillStyle = '#ffffff';
+            ctx.font = 'bold 26px system-ui, -apple-system, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('Club de Ajedrez OKILEVO', W / 2, 32);
+
+            // Subtítulo del encuentro
+            ctx.fillStyle = '#94a3b8';
+            ctx.font = '600 15px system-ui, -apple-system, sans-serif';
+            ctx.fillText(tituloEncuentro, W / 2, 62);
+
+            // Parámetros del tablero 8x8
+            const boardSize = 640;
+            const sq = boardSize / 8;
+            const offsetX = (W - boardSize) / 2;
+            const offsetY = 104;
+
+            // Marco del tablero
+            ctx.fillStyle = '#334155';
+            ctx.fillRect(offsetX - 6, offsetY - 6, boardSize + 12, boardSize + 12);
+
+            const colsLetras = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
+
+            for (let vr = 0; vr < 8; vr++) {
+                for (let vc = 0; vc < 8; vc++) {
+                    const r = invertido ? 7 - vr : vr;
+                    const c = invertido ? 7 - vc : vc;
+                    const x = offsetX + vc * sq;
+                    const y = offsetY + vr * sq;
+
+                    const esClara = (r + c) % 2 === 0;
+                    ctx.fillStyle = esClara ? '#eeeed2' : '#769656';
+                    ctx.fillRect(x, y, sq, sq);
+
+                    // Resaltado de última jugada
+                    if (ultimoMov && (
+                        (ultimoMov.from[0] === r && ultimoMov.from[1] === c) ||
+                        (ultimoMov.to[0] === r && ultimoMov.to[1] === c)
+                    )) {
+                        ctx.fillStyle = 'rgba(255, 235, 59, 0.45)';
+                        ctx.fillRect(x, y, sq, sq);
+                    }
+
+                    // Coordenadas
+                    if (vc === 0) {
+                        ctx.fillStyle = esClara ? '#769656' : '#eeeed2';
+                        ctx.font = 'bold 13px system-ui, sans-serif';
+                        ctx.textAlign = 'left';
+                        ctx.textBaseline = 'top';
+                        ctx.fillText(String(8 - r), x + 4, y + 4);
+                    }
+                    if (vr === 7) {
+                        ctx.fillStyle = esClara ? '#769656' : '#eeeed2';
+                        ctx.font = 'bold 13px system-ui, sans-serif';
+                        ctx.textAlign = 'right';
+                        ctx.textBaseline = 'bottom';
+                        ctx.fillText(colsLetras[c], x + sq - 4, y + sq - 3);
+                    }
+
+                    // Pieza
+                    const pieza = tablero[r][c];
+                    if (pieza) {
+                        const simbolo = SIMBOLOS[pieza.color][pieza.type];
+                        ctx.font = '58px "Segoe UI Symbol", "Apple Symbols", "Noto Sans Symbols", serif';
+                        ctx.textAlign = 'center';
+                        ctx.textBaseline = 'middle';
+                        if (pieza.color === 'w') {
+                            ctx.lineWidth = 3;
+                            ctx.strokeStyle = '#1e293b';
+                            ctx.strokeText(simbolo, x + sq / 2, y + sq / 2 + 3);
+                            ctx.fillStyle = '#ffffff';
+                            ctx.fillText(simbolo, x + sq / 2, y + sq / 2 + 3);
+                        } else {
+                            ctx.lineWidth = 1.5;
+                            ctx.strokeStyle = '#475569';
+                            ctx.strokeText(simbolo, x + sq / 2, y + sq / 2 + 3);
+                            ctx.fillStyle = '#111827';
+                            ctx.fillText(simbolo, x + sq / 2, y + sq / 2 + 3);
+                        }
+                    }
+                }
+            }
+
+            // Franja inferior con jugada actual y lema
+            const footerY = offsetY + boardSize + 18;
+            ctx.fillStyle = '#1e293b';
+            ctx.fillRect(offsetX - 6, footerY, boardSize + 12, 62);
+
+            ctx.fillStyle = '#fbbf24';
+            ctx.font = 'bold 20px ui-monospace, SFMono-Regular, Menlo, monospace';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(subtituloJugada, W / 2, footerY + 23);
+
+            ctx.fillStyle = '#94a3b8';
+            ctx.font = 'italic 12px system-ui, sans-serif';
+            ctx.fillText('IMC · Estrategia en cada movimiento', W / 2, footerY + 47);
+        }
+
+        async function exportarVideoPartida() {
+            if (grabandoVideo) return;
+
+            if (juego.registroJugadas.length === 0 || juego.historial.length === 0) {
+                actualizarMensajeEstado(
+                    'Realiza al menos una jugada para poder descargar el video de la partida.',
+                    'fa-solid fa-circle-info',
+                    'text-amber-400'
+                );
+                return;
+            }
+
+            if (typeof MediaRecorder === 'undefined') {
+                alert('Tu navegador no soporta la grabación de video en canvas. Prueba desde Google Chrome o Microsoft Edge.');
+                return;
+            }
+
+            grabandoVideo = true;
+            downloadVideoBtn.disabled = true;
+            if (modalDownloadVideoBtn) modalDownloadVideoBtn.disabled = true;
+            downloadVideoIcon.className = 'fa-solid fa-spinner fa-spin text-amber-300';
+            downloadVideoText.textContent = 'Preparando video...';
+
+            try {
+                // Reconstruir secuencia completa de fotogramas
+                const frames = [];
+                frames.push({
+                    tablero: juego.historial[0].tablero,
+                    ultimoMov: null,
+                    texto: 'Posición inicial',
+                    duracion: 900
+                });
+
+                for (let i = 0; i < juego.historial.length; i++) {
+                    const tableroDespues = (i + 1 < juego.historial.length)
+                        ? juego.historial[i + 1].tablero
+                        : juego.tablero;
+                    const reg = juego.registroJugadas[i];
+                    const numJugada = Math.floor(i / 2) + 1;
+                    const prefijo = reg && reg.turno === 'w' ? `${numJugada}. ` : `${numJugada}... `;
+                    const pgn = reg ? reg.pgn : '';
+                    const esFinal = (i === juego.historial.length - 1);
+
+                    frames.push({
+                        tablero: tableroDespues,
+                        ultimoMov: reg ? { from: reg.from, to: reg.to } : null,
+                        texto: `Jugada ${prefijo}${pgn}`,
+                        duracion: esFinal ? 2200 : 750
+                    });
+                }
+
+                // Título descriptivo del encuentro
+                const etiquetaNivel = ETIQUETAS_NIVEL[juego.nivelIA] || 'IA';
+                let tituloEncuentro = 'Dos Jugadores (Local)';
+                if (juego.modoJuego === 'ai') {
+                    tituloEncuentro = juego.bandoJugador === 'w'
+                        ? `Blancas (Tú) vs Negras (${etiquetaNivel})`
+                        : `Blancas (${etiquetaNivel}) vs Negras (Tú)`;
+                } else if (juego.modoJuego === 'tutorial') {
+                    tituloEncuentro = 'Academia OKILEVO · Modo Iniciación';
+                }
+
+                const canvas = document.createElement('canvas');
+                canvas.width = 720;
+                canvas.height = 840;
+                const ctx = canvas.getContext('2d');
+
+                // Seleccionar el mejor formato soportado por el navegador
+                const tipos = [
+                    'video/mp4;codecs=avc1',
+                    'video/mp4',
+                    'video/webm;codecs=vp9',
+                    'video/webm;codecs=vp8',
+                    'video/webm'
+                ];
+                const mimeType = tipos.find(t => MediaRecorder.isTypeSupported(t)) || '';
+                const extension = mimeType.includes('mp4') ? 'mp4' : 'webm';
+
+                const stream = canvas.captureStream(30);
+                const recorder = mimeType
+                    ? new MediaRecorder(stream, { mimeType, videoBitsPerSecond: 2500000 })
+                    : new MediaRecorder(stream);
+
+                const chunks = [];
+                recorder.ondataavailable = (e) => {
+                    if (e.data && e.data.size > 0) chunks.push(e.data);
+                };
+
+                const stopPromise = new Promise((resolve) => {
+                    recorder.onstop = resolve;
+                });
+
+                // Dibujar primer fotograma antes de iniciar la grabación
+                dibujarFotogramaVideo(
+                    ctx, canvas.width, canvas.height,
+                    frames[0].tablero, frames[0].ultimoMov, frames[0].texto,
+                    tituloEncuentro, juego.tableroInvertido
+                );
+
+                recorder.start();
+
+                for (let idx = 0; idx < frames.length; idx++) {
+                    const f = frames[idx];
+                    const pct = Math.round(((idx + 1) / frames.length) * 100);
+                    downloadVideoText.textContent = `Grabando video (${pct}%)...`;
+
+                    dibujarFotogramaVideo(
+                        ctx, canvas.width, canvas.height,
+                        f.tablero, f.ultimoMov, f.texto,
+                        tituloEncuentro, juego.tableroInvertido
+                    );
+
+                    await new Promise(res => setTimeout(res, f.duracion));
+                }
+
+                recorder.stop();
+                await stopPromise;
+
+                const blob = new Blob(chunks, { type: mimeType || 'video/webm' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                const fecha = new Date().toISOString().slice(0, 10);
+                a.href = url;
+                a.download = `partida-ajedrez-okilevo-${fecha}.${extension}`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                setTimeout(() => URL.revokeObjectURL(url), 5000);
+
+                downloadVideoIcon.className = 'fa-solid fa-check text-emerald-300';
+                downloadVideoText.textContent = '¡Video descargado!';
+                setTimeout(() => {
+                    downloadVideoIcon.className = 'fa-solid fa-film text-amber-300';
+                    downloadVideoText.textContent = 'Descargar Video de la Partida';
+                }, 2500);
+            } catch (err) {
+                console.error('Error al generar video:', err);
+                alert('No se pudo generar el video en este navegador. Intenta desde Google Chrome o Microsoft Edge.');
+                downloadVideoIcon.className = 'fa-solid fa-film text-amber-300';
+                downloadVideoText.textContent = 'Descargar Video de la Partida';
+            } finally {
+                grabandoVideo = false;
+                downloadVideoBtn.disabled = false;
+                if (modalDownloadVideoBtn) modalDownloadVideoBtn.disabled = false;
+            }
+        }
+
+        if (downloadVideoBtn) {
+            downloadVideoBtn.addEventListener('click', exportarVideoPartida);
+        }
+        if (modalDownloadVideoBtn) {
+            modalDownloadVideoBtn.addEventListener('click', exportarVideoPartida);
         }
 
         window.onload = () => {
